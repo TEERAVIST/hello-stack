@@ -6,3 +6,6 @@ build
 coverage
 *.log
 .git
+# prevent leaking secrets in image layers
+.env
+.env.*
