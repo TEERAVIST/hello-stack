@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  backend:
+    image: ${APP_IMAGE_BACKEND}
+    environment:
+      SQL_HOST: ${SQL_HOST}
+      SQL_PORT: ${SQL_PORT}
+      SQL_USER: ${SQL_USER}
+      SQL_PASSWORD: ${SQL_PASSWORD}
+      SQL_DB: ${SQL_DB}
+    restart: unless-stopped
+    # Optional: ensure pull each time (Compose v2+)
+    pull_policy: always
+
+  nginx:
+    image: ${APP_IMAGE_WEB}
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    pull_policy: always
