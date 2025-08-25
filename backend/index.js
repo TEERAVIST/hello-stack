@@ -1,6 +1,6 @@
 // backend/index.js
 import cors from 'cors';
-import 'dotenv/config';
+import 'dotenv/config'; // Make sure this is at the very top
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -12,14 +12,19 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('tiny'));
 
-const {
-  SQL_HOST = '172.16.23.221',
-  SQL_PORT = '3369',
-  SQL_USER = 'sa',
-  SQL_PASSWORD = 'Kanasorn123',
-  SQL_DB = 'hello_app',
-  DEBUG_SQL = '0',
-} = process.env;
+// Get environment variables directly
+const SQL_HOST = process.env.SQL_HOST;
+const SQL_PORT = process.env.SQL_PORT;
+const SQL_USER = process.env.SQL_USER;
+const SQL_PASSWORD = process.env.SQL_PASSWORD;
+const SQL_DB = process.env.SQL_DB;
+const DEBUG_SQL = process.env.DEBUG_SQL;
+
+// If a variable is missing, you might want to log an error or exit
+if (!SQL_HOST || !SQL_PORT || !SQL_USER || !SQL_PASSWORD || !SQL_DB) {
+  console.error("Missing required environment variables!");
+  process.exit(1);
+}
 
 const baseConfig = {
   server: SQL_HOST,
@@ -28,7 +33,7 @@ const baseConfig = {
   password: SQL_PASSWORD,
   options: {
     encrypt: false,
-    trustServerCertificate: true, // useful on LAN/self-signed
+    trustServerCertificate: true,
     enableArithAbort: true
   },
   pool: { max: 5, min: 0, idleTimeoutMillis: 30000 }
@@ -38,7 +43,6 @@ const logSql = (sql) => { if (DEBUG_SQL === '1') console.log(sql); };
 
 // Ensure DB + table exist, then seed one row
 async function migrateAndSeed() {
-  // 1) connect to master to create DB if missing
   const masterPool = await mssql.connect({ ...baseConfig, database: 'master' });
   const createDbSql = `
 IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'${SQL_DB}')
@@ -51,10 +55,7 @@ END
   await masterPool.request().query(createDbSql);
   await masterPool.close();
 
-  // 2) connect to target DB
   const dbPool = await mssql.connect({ ...baseConfig, database: SQL_DB });
-
-  // 3) create table if missing
   const createTableSql = `
 IF OBJECT_ID(N'dbo.AppLog', N'U') IS NULL
 BEGIN
@@ -70,7 +71,6 @@ END
   logSql(createTableSql);
   await dbPool.request().query(createTableSql);
 
-  // 4) seed a welcome row if table is empty
   const countRes = await dbPool.request().query('SELECT COUNT(1) AS c FROM dbo.AppLog;');
   if (countRes.recordset[0].c === 0) {
     await dbPool.request()
@@ -78,7 +78,7 @@ END
       .query('INSERT INTO dbo.AppLog (Message) VALUES (@msg);');
   }
 
-  return dbPool; // keep pool open for app usage
+  return dbPool;
 }
 
 // Start up sequence
@@ -111,7 +111,7 @@ migrateAndSeed()
 INSERT INTO dbo.AppLog (Message, ClientIp, UserAgent)
 OUTPUT INSERTED.Id, INSERTED.CreatedAt
 VALUES (@message, @clientIp, @userAgent);
-        `);
+          `);
 
         const row = result.recordset[0];
         res.json({ ok: true, id: row.Id, createdAt: row.CreatedAt });
